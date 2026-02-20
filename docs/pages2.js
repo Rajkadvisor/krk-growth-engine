@@ -395,3 +395,130 @@ function analyzeViral() {
     toast('Viral score: ' + score + '/100', 'success');
   }, 1400);
 }
+
+// ===== AI IMAGE QUOTES GENERATOR =====
+var QUOTE_TEMPLATES = [
+  { text: '🛡️ Protect Your Family\nBefore It\'s Too Late!\nCall Now for FREE Insurance Advice', bg: 'linear-gradient(135deg,#1a1a2e,#16213e)', accent: '#6c47ff' },
+  { text: '💰 Save TAX + Get\nLIFE INSURANCE\nin One Smart Plan!', bg: 'linear-gradient(135deg,#0f3460,#533483)', accent: '#ff47c7' },
+  { text: '🎯 1 Crore Coverage\nJust ₹500/Month!\nCall Me Today 📞', bg: 'linear-gradient(135deg,#134e5e,#71b280)', accent: '#22c55e' },
+  { text: '🔥 Don\'t Wait!\nHealth Insurance\nPrices Rise Every Year', bg: 'linear-gradient(135deg,#c94b4b,#4b134f)', accent: '#ff7070' },
+  { text: '👨‍👩‍👧 Your Family Deserves\nThe BEST Protection.\nSecure Them Today!', bg: 'linear-gradient(135deg,#373b44,#4286f4)', accent: '#60a5fa' },
+  { text: '🌟 Success = Earning\n+ PROTECTING\nWhat You\'ve Built!', bg: 'linear-gradient(135deg,#f7971e,#ffd200)', accent: '#1a1a1a' }
+];
+
+function renderImageQuotes() {
+  var quoteOptions = QUOTE_TEMPLATES.map(function (q, i) {
+    return '<div class="content-card" style="cursor:pointer;border:2px solid transparent;transition:border 0.2s;" id="qt-' + i + '" onclick="selectQuoteTemplate(' + i + ')">' +
+      '<div style="background:' + q.bg + ';border-radius:12px;padding:20px;text-align:center;min-height:100px;display:flex;align-items:center;justify-content:center;">' +
+      '<div style="color:white;font-weight:700;font-size:13px;white-space:pre-line;line-height:1.5;">' + q.text + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px;">' +
+      '<button class="btn btn-primary btn-sm" style="flex:1;" onclick="event.stopPropagation();generateQuoteCard(' + i + ')">🎨 Generate Card</button>' +
+      '<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();downloadQuoteCard(' + i + ')">⬇️ Download</button>' +
+      '</div>' +
+      '</div>';
+  }).join('');
+
+  return '<div class="card" style="margin-bottom:20px;">' +
+    '<div class="card-title" style="margin-bottom:4px;">🎨 AI Image Quote Generator</div>' +
+    '<div class="card-subtitle" style="margin-bottom:16px;">Create shareable quote cards for Instagram, WhatsApp & Facebook</div>' +
+
+    '<div class="form-group">' +
+    '<label class="form-label">Custom Quote Text</label>' +
+    '<textarea id="customQuoteText" style="width:100%;min-height:80px;padding:12px;background:var(--bg-card);color:var(--text-primary);border:1px solid var(--border);border-radius:12px;font-size:14px;resize:vertical;" placeholder="Type your quote here..."></textarea>' +
+    '</div>' +
+
+    '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">' +
+    '<button class="btn btn-primary" onclick="generateCustomQuote()" style="flex:1;min-width:140px;">✨ Generate Custom Card</button>' +
+    '<button class="btn btn-ghost" onclick="downloadCustomQuote()" style="flex:1;min-width:120px;">⬇️ Download Card</button>' +
+    '</div>' +
+
+    '<canvas id="quoteCanvas" style="width:100%;border-radius:12px;display:block;margin-bottom:16px;border:1px solid var(--border);"></canvas>' +
+
+    '<div class="card-title" style="margin-bottom:12px;">📝 Quick Templates</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">' +
+    quoteOptions +
+    '</div>' +
+    '</div>';
+}
+
+function generateCustomQuote() {
+  var text = document.getElementById('customQuoteText').value.trim();
+  if (!text) { toast('Please type your quote text first', 'warning'); return; }
+  drawQuoteCard(text, 'linear-gradient(135deg,#6c47ff,#ff47c7)', '#ffffff');
+  toast('Quote card generated! Tap Download to save.', 'success');
+}
+
+function downloadCustomQuote() {
+  var canvas = document.getElementById('quoteCanvas');
+  if (!canvas || canvas.width === 0) { toast('Generate a card first', 'warning'); return; }
+  var a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = 'krk-quote-card.png';
+  a.click();
+  toast('Quote card downloaded!', 'success');
+}
+
+function generateQuoteCard(idx) {
+  var q = QUOTE_TEMPLATES[idx];
+  drawQuoteCard(q.text.replace(/\\n/g, '\n'), q.bg, '#ffffff');
+  toast('Quote card ready! Tap Download to save.', 'success');
+}
+
+function downloadQuoteCard(idx) {
+  generateQuoteCard(idx);
+  setTimeout(function () { downloadCustomQuote(); }, 100);
+}
+
+function selectQuoteTemplate(idx) {
+  document.querySelectorAll('[id^="qt-"]').forEach(function (el) { el.style.border = '2px solid transparent'; });
+  var el = document.getElementById('qt-' + idx);
+  if (el) el.style.border = '2px solid var(--accent)';
+  generateQuoteCard(idx);
+}
+
+function drawQuoteCard(text, bg, textColor) {
+  var canvas = document.getElementById('quoteCanvas');
+  if (!canvas) return;
+  var size = Math.min(window.innerWidth - 80, 500);
+  canvas.width = size; canvas.height = size;
+  canvas.style.maxWidth = '100%';
+  var ctx = canvas.getContext('2d');
+
+  // Background gradient
+  var gradColors = bg.match(/#[0-9a-fA-F]{6}/g) || ['#6c47ff', '#ff47c7'];
+  var grad = ctx.createLinearGradient(0, 0, size, size);
+  grad.addColorStop(0, gradColors[0] || '#6c47ff');
+  grad.addColorStop(1, gradColors[1] || '#ff47c7');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, 20);
+  ctx.fill();
+
+  // Decorative circles
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(size * 0.9, size * 0.1, size * 0.25, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(size * 0.1, size * 0.85, size * 0.2, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Quote text (wrap lines)
+  ctx.fillStyle = textColor || '#ffffff';
+  ctx.textAlign = 'center';
+  var lines = text.split('\n');
+  var totalLines = lines.length;
+  var lineHeight = size / (totalLines + 4);
+  var fontSize = Math.min(Math.floor(size / (totalLines * 2.5 + 2)), 36);
+  ctx.font = 'bold ' + fontSize + 'px sans-serif';
+  var startY = (size - (totalLines * lineHeight)) / 2 + lineHeight * 0.8;
+  lines.forEach(function (line, i) {
+    ctx.fillText(line, size / 2, startY + i * lineHeight);
+  });
+
+  // KRK branding at bottom
+  ctx.globalAlpha = 0.7;
+  ctx.font = 'bold ' + Math.floor(fontSize * 0.55) + 'px sans-serif';
+  ctx.fillText('🔥 KRK Growth Engine', size / 2, size - size * 0.05);
+  ctx.globalAlpha = 1;
+}
+
