@@ -360,7 +360,22 @@ function addTrend(tag) { toast(`Trend "${tag}" added to context!`, 'success'); }
 
 function generateContent() {
   const out = document.getElementById('contentOutput');
-  out.innerHTML = `<div class="card" style="text-align:center;padding:40px;"><div class="animate-spin" style="font-size:32px;margin-bottom:12px;">⚙️</div><div>AI is crafting your content...</div></div>`;
+  // Rich loading skeleton
+  out.innerHTML = `
+  <div class="card" style="padding:28px;">
+    <div class="loading-card" style="animation:none;border:none;padding:0;background:transparent;">
+      <span class="loading-icon">⚙️</span>
+      <div style="font-size:16px;font-weight:600;margin-bottom:6px;">AI is crafting your content...</div>
+      <div class="loading-text">Analyzing tone, language & trending topics</div>
+    </div>
+    <div style="margin-top:20px;">
+      <div class="skeleton skeleton-title"></div>
+      <div class="skeleton skeleton-line" style="width:90%;"></div>
+      <div class="skeleton skeleton-line" style="width:75%;"></div>
+      <div class="skeleton skeleton-line" style="width:80%;"></div>
+    </div>
+  </div>`;
+
   setTimeout(() => {
     const lang = STATE.selectedLang;
     const tone = STATE.selectedTone;
@@ -373,7 +388,9 @@ function generateContent() {
     const hashtags = TEMPLATES.hashtags[cat] || TEMPLATES.hashtags['general'];
     const cta = TEMPLATES.cta_variations[Math.floor(Math.random() * TEMPLATES.cta_variations.length)];
     const viralScore = Math.floor(62 + Math.random() * 30);
-    STATE.generatedContent = { hook, short, long, hashtags, cta, viralScore };
+    // Store globally so share/copy buttons access text safely without raw text in onclick
+    window._generated = { hook, short, long, hashtags, cta, viralScore };
+    STATE.generatedContent = window._generated;
     out.innerHTML = `
     <div class="viral-score-card" style="margin-bottom:16px;">
       <div class="viral-score-number">${viralScore}</div>
@@ -387,40 +404,56 @@ function generateContent() {
     </div>
     <div class="tab-panel active" id="tab-hook">
       <div class="content-card">
-        <div class="content-text" style="font-size:16px;font-weight:600;color:var(--text-primary);">"${hook}"</div>
-        <div class="content-actions">
-          <button class="btn btn-primary btn-sm" onclick="openShareModal('${hook.replace(/'/g, "\\'")} \\n\\n${cta}')">📤 Share</button>
-          <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText('${hook.replace(/'/g, "\\'")}'.then?navigator.clipboard.writeText('${hook.replace(/'/g, "\\'")}'):null);toast('Copied!','success')">📋 Copy</button>
+        <div class="content-text" style="font-size:16px;font-weight:600;color:var(--text-primary);" id="gen-hook-text">"${hook}"</div>
+        <div class="content-actions" style="gap:10px;margin-top:12px;">
+          <button class="btn btn-primary btn-sm" onclick="shareGenerated('hook')">📤 Share</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyGenerated('hook')">📋 Copy</button>
         </div>
       </div>
     </div>
     <div class="tab-panel" id="tab-short">
       <div class="content-card">
-        <div class="content-text">${short}</div>
+        <div class="content-text" id="gen-short-text">${short}</div>
         <div class="content-hashtags">${hashtags.split(' ').slice(0, 5).join(' ')}</div>
-        <div class="content-actions">
-          <button class="btn btn-primary btn-sm" onclick="openShareModal(document.getElementById('tab-short').querySelector('.content-text').textContent + ' ' + '${cta}')">📤 Share</button>
-          <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('tab-short').querySelector('.content-text').textContent);toast('Copied!','success')">📋 Copy</button>
-          <button class="btn btn-ghost btn-sm" onclick="openWhatsApp('${short.replace(/'/g, "\\'")} ${cta}')">💬 WhatsApp Lead</button>
+        <div class="content-actions" style="gap:10px;margin-top:12px;">
+          <button class="btn btn-primary btn-sm" onclick="shareGenerated('short')">📤 Share</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyGenerated('short')">📋 Copy</button>
+          <button class="btn btn-ghost btn-sm" onclick="openWhatsApp(window._generated.short)">💬 WhatsApp</button>
         </div>
       </div>
     </div>
     <div class="tab-panel" id="tab-long">
       <div class="content-card">
-        <div class="content-text">${long}</div>
+        <div class="content-text" id="gen-long-text">${long}</div>
         <div class="content-hashtags">${hashtags}</div>
-        <div class="content-actions">
-          <button class="btn btn-primary btn-sm" onclick="openShareModal(document.getElementById('tab-long').querySelector('.content-text').textContent)">📤 Share</button>
-          <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('tab-long').querySelector('.content-text').textContent);toast('Copied!','success')">📋 Copy</button>
+        <div class="content-actions" style="gap:10px;margin-top:12px;">
+          <button class="btn btn-primary btn-sm" onclick="shareGenerated('long')">📤 Share</button>
+          <button class="btn btn-ghost btn-sm" onclick="copyGenerated('long')">📋 Copy</button>
         </div>
       </div>
     </div>`;
-    toast('Content generated!', 'success');
-    STATE.analytics.totalShares++;
+    toast('✨ Content generated!', 'success');
   }, 1500);
 }
 
+function shareGenerated(type) {
+  if (!window._generated) return;
+  var g = window._generated;
+  var text = type === 'hook' ? g.hook + '\n\n' + g.cta : type === 'short' ? g.short + ' ' + g.cta : g.long;
+  openShareModal(text);
+}
+
+function copyGenerated(type) {
+  if (!window._generated) return;
+  var g = window._generated;
+  var text = type === 'hook' ? g.hook : type === 'short' ? g.short : g.long;
+  navigator.clipboard.writeText(text).then(function () { toast('📋 Copied!', 'success'); }).catch(function () {
+    toast('Select & copy manually', 'warning');
+  });
+}
+
 function switchTab(name) {
+
   document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['hook', 'short', 'long'][i] === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
 }
