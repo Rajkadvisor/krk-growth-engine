@@ -11,28 +11,47 @@ function loadUserSession() {
   try {
     var s = JSON.parse(localStorage.getItem('krk_session'));
     if (!s) return;
-    // Update sidebar name & role
+    var initial = (s.name || 'K').charAt(0).toUpperCase();
+    var displayName = s.name || 'KRK User';
+    // Sidebar
     var nameEl = document.getElementById('sidebarName');
     var roleEl = document.getElementById('sidebarRole');
     var avatarEl = document.getElementById('sidebarAvatar');
-    if (nameEl) nameEl.textContent = s.name || 'KRK User';
+    if (nameEl) nameEl.textContent = displayName;
     if (roleEl) roleEl.textContent = s.role === 'admin' ? '⚙️ Admin' : '📊 Growth Pro';
-    if (avatarEl) avatarEl.textContent = (s.name || 'K').charAt(0).toUpperCase();
-    // Update dashboard greeting
-    var subtitleEl = document.getElementById('topbarSubtitle');
-    if (subtitleEl && subtitleEl.textContent.includes('KRK User')) {
-      subtitleEl.textContent = 'Welcome back, ' + (s.name || 'KRK User') + ' 👋';
-    }
-    // Show/hide admin nav if admin
+    if (avatarEl) avatarEl.textContent = initial;
+    // Topbar avatar
+    var topAvatar = document.getElementById('topbarAvatar');
+    if (topAvatar) topAvatar.textContent = initial;
+    // Topbar subtitle
+    var subEl = document.getElementById('topbarSubtitle');
+    if (subEl) subEl.textContent = 'Welcome back, ' + displayName + ' 👋';
+    // Admin nav
     if (s.role === 'admin') {
       document.querySelectorAll('[data-page="admin"]').forEach(function (el) { el.style.display = ''; });
     }
+    // Show install banner after 3s if prompt ready
+    setTimeout(function () {
+      if (deferredInstallPrompt) {
+        var banner = document.getElementById('installBanner');
+        if (banner) banner.style.display = 'flex';
+      }
+    }, 3000);
   } catch (e) { }
 }
 
 function logoutUser() {
   localStorage.removeItem('krk_session');
   window.location.href = 'login.html';
+}
+
+function triggerInstall() {
+  var banner = document.getElementById('installBanner');
+  if (banner) banner.style.display = 'none';
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(function () { deferredInstallPrompt = null; });
+  }
 }
 
 
@@ -52,14 +71,19 @@ function navigate(page) {
     viral: 'Viral Predictor', gamification: 'My Progress', insurance: 'Insurance Expert Mode', admin: 'Admin Panel'
   };
   const subtitles = {
-    dashboard: 'Welcome back, KRK User 👋', content: 'Generate AI-powered content instantly',
+    dashboard: 'Welcome back 👋', content: 'Generate AI-powered content instantly',
     campaign: 'Build smart marketing campaigns', calendar: 'Plan your monthly content strategy',
     share: 'Share to all platforms in one click', leads: 'Manage & track your leads',
     viral: 'Predict content virality before posting', gamification: 'Your growth journey & achievements',
     insurance: 'Specialized insurance content templates', admin: 'Manage templates & platform'
   };
   document.getElementById('topbarTitle').textContent = titles[page] || page;
-  document.getElementById('topbarSubtitle').textContent = subtitles[page] || '';
+  // Use personal greeting for dashboard
+  var subtitle = subtitles[page] || '';
+  if (page === 'dashboard') {
+    try { var s = JSON.parse(localStorage.getItem('krk_session')); if (s && s.name) subtitle = 'Welcome back, ' + s.name + ' 👋'; } catch (e) { }
+  }
+  document.getElementById('topbarSubtitle').textContent = subtitle;
   const container = document.getElementById('pageContainer');
   container.style.opacity = '0';
   container.style.transform = 'translateY(12px)';
@@ -115,10 +139,16 @@ function closeSidebarOnMobile() {
 
 function showInstallPrompt() {
   if (deferredInstallPrompt) {
-    deferredInstallPrompt.prompt();
-    deferredInstallPrompt.userChoice.then(() => { deferredInstallPrompt = null; });
+    triggerInstall();
   } else {
-    toast('Open in Chrome browser & tap "Add to Home Screen" to install the app!', 'info');
+    var banner = document.getElementById('installBanner');
+    if (banner) {
+      banner.style.display = 'flex';
+      var lines = banner.querySelectorAll('div > div');
+      if (lines[0]) lines[0].textContent = 'How to Install';
+      if (lines[1]) lines[1].textContent = 'Tap ⋮ Menu → Add to Home Screen';
+    }
+    toast('Tap browser menu → "Add to Home Screen" to install!', 'info');
   }
 }
 
@@ -134,22 +164,32 @@ function copyCaption() {
 
 function openShareModal(caption) {
   document.getElementById('shareModalCaption').textContent = caption;
-  const waNum = '919000000000';
   const waMsg = encodeURIComponent(caption);
   const platforms = [
-    { name: 'WhatsApp', icon: '💬', cls: 'whatsapp', url: `https://wa.me/?text=${waMsg}` },
-    { name: 'Instagram', icon: '📸', cls: 'instagram', url: `https://www.instagram.com/` },
-    { name: 'Facebook', icon: '👍', cls: 'facebook', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${waMsg}` },
-    { name: 'Telegram', icon: '✈️', cls: 'telegram', url: `https://t.me/share/url?text=${waMsg}` },
-    { name: 'Threads', icon: '🧵', cls: 'threads', url: `https://www.threads.net/` },
-    { name: 'YouTube', icon: '▶️', cls: 'youtube', url: `https://www.youtube.com/` }
+    { name: 'WhatsApp', icon: '💬', cls: 'whatsapp', url: 'https://wa.me/?text=' + waMsg },
+    { name: 'Instagram', icon: '📸', cls: 'instagram', url: 'https://www.instagram.com/' },
+    { name: 'Facebook', icon: '👍', cls: 'facebook', url: 'https://www.facebook.com/sharer/sharer.php?quote=' + waMsg },
+    { name: 'Telegram', icon: '✈️', cls: 'telegram', url: 'https://t.me/share/url?text=' + waMsg },
+    { name: 'Threads', icon: '🧵', cls: 'threads', url: 'https://www.threads.net/' },
+    { name: 'YouTube', icon: '▶️', cls: 'youtube', url: 'https://www.youtube.com/' }
   ];
-  document.getElementById('shareModalGrid').innerHTML = platforms.map(p =>
-    `<button class="share-btn ${p.cls}" onclick="shareToplatform('${p.url}','${p.name}')">
-      <span class="share-icon">${p.icon}</span>${p.name}
-    </button>`
-  ).join('');
+  // Store globally so buttons use index (avoids special char issues in onclick)
+  window._sharePlatforms = platforms;
+  document.getElementById('shareModalGrid').innerHTML = platforms.map(function (p, i) {
+    return '<button class="share-btn ' + p.cls + '" style="padding:16px 10px;" onclick="shareToplatformSafe(' + i + ')">' +
+      '<span class="share-icon">' + p.icon + '</span>' + p.name + '</button>';
+  }).join('');
   openModal('shareModal');
+}
+
+function shareToplatformSafe(idx) {
+  var platforms = window._sharePlatforms;
+  if (!platforms || !platforms[idx]) return;
+  var p = platforms[idx];
+  STATE.analytics.totalShares++;
+  window.open(p.url, '_blank');
+  toast('Opening ' + p.name + '! Caption copied.', 'success');
+  copyCaption();
 }
 
 function shareToplatform(url, name) {
@@ -243,6 +283,12 @@ function renderDashboard() {
 // ===== CONTENT ENGINE =====
 function renderContent() {
   return `
+  <div class="tabs" style="margin-bottom:20px;">
+    <button class="tab active" onclick="switchContentTab('generate')">✨ AI Content</button>
+    <button class="tab" onclick="switchContentTab('imagequotes')">🎨 Image Quotes</button>
+    <button class="tab" onclick="navigate('share')">📤 Share Hub</button>
+  </div>
+  <div id="content-tab-generate" class="content-tab active">
   <div class="grid-2">
     <div>
       <div class="card" style="margin-bottom:20px;">
@@ -285,8 +331,22 @@ function renderContent() {
         <div class="empty-desc">Select your settings and click Generate to create powerful marketing content</div>
       </div>
     </div>
+  </div>
+  </div>
+  <div id="content-tab-imagequotes" class="content-tab" style="display:none;">
+    ${renderImageQuotes()}
   </div>`;
 }
+
+function switchContentTab(tab) {
+  document.querySelectorAll('.content-tab').forEach(function (el) { el.style.display = 'none'; });
+  var target = document.getElementById('content-tab-' + tab);
+  if (target) target.style.display = 'block';
+  document.querySelectorAll('.tabs .tab').forEach(function (t, i) {
+    t.classList.toggle('active', (i === 0 && tab === 'generate') || (i === 1 && tab === 'imagequotes') || (i === 2 && tab === 'share'));
+  });
+}
+
 
 function selectLang(lang) {
   STATE.selectedLang = lang;
