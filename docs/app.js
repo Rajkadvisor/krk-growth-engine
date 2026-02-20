@@ -3,138 +3,168 @@ let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstallPrompt = e; });
 
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => { });
+  navigator.serviceWorker.register('sw.js').catch(() => { });
 }
 
+// ===== AUTH / SESSION =====
+function loadUserSession() {
+  try {
+    var s = JSON.parse(localStorage.getItem('krk_session'));
+    if (!s) return;
+    // Update sidebar name & role
+    var nameEl = document.getElementById('sidebarName');
+    var roleEl = document.getElementById('sidebarRole');
+    var avatarEl = document.getElementById('sidebarAvatar');
+    if (nameEl) nameEl.textContent = s.name || 'KRK User';
+    if (roleEl) roleEl.textContent = s.role === 'admin' ? '⚙️ Admin' : '📊 Growth Pro';
+    if (avatarEl) avatarEl.textContent = (s.name || 'K').charAt(0).toUpperCase();
+    // Update dashboard greeting
+    var subtitleEl = document.getElementById('topbarSubtitle');
+    if (subtitleEl && subtitleEl.textContent.includes('KRK User')) {
+      subtitleEl.textContent = 'Welcome back, ' + (s.name || 'KRK User') + ' 👋';
+    }
+    // Show/hide admin nav if admin
+    if (s.role === 'admin') {
+      document.querySelectorAll('[data-page="admin"]').forEach(function (el) { el.style.display = ''; });
+    }
+  } catch (e) { }
+}
+
+function logoutUser() {
+  localStorage.removeItem('krk_session');
+  window.location.href = 'login.html';
+}
+
+
 function navigate(page) {
-    STATE.currentPage = page;
-    // Update sidebar
-    document.querySelectorAll('.nav-item[data-page]').forEach(el => {
-        el.classList.toggle('active', el.dataset.page === page);
-    });
-    // Update bottom nav
-    document.querySelectorAll('.bottom-nav-item[data-page]').forEach(el => {
-        el.classList.toggle('active', el.dataset.page === page);
-    });
-    const titles = {
-        dashboard: 'Dashboard', content: 'AI Content Engine', campaign: 'Campaign Builder',
-        calendar: 'Content Calendar', share: 'Multi-Share Hub', leads: 'Lead Capture',
-        viral: 'Viral Predictor', gamification: 'My Progress', insurance: 'Insurance Expert Mode', admin: 'Admin Panel'
-    };
-    const subtitles = {
-        dashboard: 'Welcome back, KRK User 👋', content: 'Generate AI-powered content instantly',
-        campaign: 'Build smart marketing campaigns', calendar: 'Plan your monthly content strategy',
-        share: 'Share to all platforms in one click', leads: 'Manage & track your leads',
-        viral: 'Predict content virality before posting', gamification: 'Your growth journey & achievements',
-        insurance: 'Specialized insurance content templates', admin: 'Manage templates & platform'
-    };
-    document.getElementById('topbarTitle').textContent = titles[page] || page;
-    document.getElementById('topbarSubtitle').textContent = subtitles[page] || '';
-    const container = document.getElementById('pageContainer');
-    container.style.opacity = '0';
-    container.style.transform = 'translateY(12px)';
-    setTimeout(() => {
-        container.innerHTML = renderPage(page);
-        container.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-        container.style.opacity = '1';
-        container.style.transform = 'translateY(0)';
-        initPageLogic(page);
-    }, 150);
-    closeSidebarOnMobile();
+  STATE.currentPage = page;
+  // Update sidebar
+  document.querySelectorAll('.nav-item[data-page]').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === page);
+  });
+  // Update bottom nav
+  document.querySelectorAll('.bottom-nav-item[data-page]').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === page);
+  });
+  const titles = {
+    dashboard: 'Dashboard', content: 'AI Content Engine', campaign: 'Campaign Builder',
+    calendar: 'Content Calendar', share: 'Multi-Share Hub', leads: 'Lead Capture',
+    viral: 'Viral Predictor', gamification: 'My Progress', insurance: 'Insurance Expert Mode', admin: 'Admin Panel'
+  };
+  const subtitles = {
+    dashboard: 'Welcome back, KRK User 👋', content: 'Generate AI-powered content instantly',
+    campaign: 'Build smart marketing campaigns', calendar: 'Plan your monthly content strategy',
+    share: 'Share to all platforms in one click', leads: 'Manage & track your leads',
+    viral: 'Predict content virality before posting', gamification: 'Your growth journey & achievements',
+    insurance: 'Specialized insurance content templates', admin: 'Manage templates & platform'
+  };
+  document.getElementById('topbarTitle').textContent = titles[page] || page;
+  document.getElementById('topbarSubtitle').textContent = subtitles[page] || '';
+  const container = document.getElementById('pageContainer');
+  container.style.opacity = '0';
+  container.style.transform = 'translateY(12px)';
+  setTimeout(() => {
+    container.innerHTML = renderPage(page);
+    container.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    container.style.opacity = '1';
+    container.style.transform = 'translateY(0)';
+    initPageLogic(page);
+  }, 150);
+  closeSidebarOnMobile();
 }
 
 function renderPage(page) {
-    switch (page) {
-        case 'dashboard': return renderDashboard();
-        case 'content': return renderContent();
-        case 'campaign': return renderCampaign();
-        case 'calendar': return renderCalendar();
-        case 'share': return renderShare();
-        case 'leads': return renderLeads();
-        case 'viral': return renderViral();
-        case 'gamification': return renderGamification();
-        case 'insurance': return renderInsurance();
-        case 'admin': return renderAdmin();
-        default: return renderDashboard();
-    }
+  switch (page) {
+    case 'dashboard': return renderDashboard();
+    case 'content': return renderContent();
+    case 'campaign': return renderCampaign();
+    case 'calendar': return renderCalendar();
+    case 'share': return renderShare();
+    case 'leads': return renderLeads();
+    case 'viral': return renderViral();
+    case 'gamification': return renderGamification();
+    case 'insurance': return renderInsurance();
+    case 'admin': return renderAdmin();
+    default: return renderDashboard();
+  }
 }
 
 function toast(msg, type = 'info') {
-    const c = document.getElementById('toastContainer');
-    const t = document.createElement('div');
-    t.className = `toast ${type}`;
-    const icons = { success: '✅', error: '❌', info: '💡', warning: '⚠️' };
-    t.innerHTML = `<span>${icons[type] || '💡'}</span><span>${msg}</span>`;
-    c.appendChild(t);
-    setTimeout(() => t.remove(), 3200);
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = { success: '✅', error: '❌', info: '💡', warning: '⚠️' };
+  t.innerHTML = `<span>${icons[type] || '💡'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
 }
 
 function toggleTheme() {
-    const html = document.documentElement;
-    STATE.theme = STATE.theme === 'dark' ? 'light' : 'dark';
-    html.setAttribute('data-theme', STATE.theme);
+  const html = document.documentElement;
+  STATE.theme = STATE.theme === 'dark' ? 'light' : 'dark';
+  html.setAttribute('data-theme', STATE.theme);
 }
 
 function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar').classList.toggle('open');
 }
 
 function closeSidebarOnMobile() {
-    if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+  if (window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
 }
 
 function showInstallPrompt() {
-    if (deferredInstallPrompt) {
-        deferredInstallPrompt.prompt();
-        deferredInstallPrompt.userChoice.then(() => { deferredInstallPrompt = null; });
-    } else {
-        toast('Open in Chrome browser & tap "Add to Home Screen" to install the app!', 'info');
-    }
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(() => { deferredInstallPrompt = null; });
+  } else {
+    toast('Open in Chrome browser & tap "Add to Home Screen" to install the app!', 'info');
+  }
 }
 
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 function copyCaption() {
-    const cap = document.getElementById('shareModalCaption').textContent;
-    navigator.clipboard.writeText(cap).then(() => toast('Caption copied!', 'success')).catch(() => {
-        toast('Select & copy text manually', 'warning');
-    });
+  const cap = document.getElementById('shareModalCaption').textContent;
+  navigator.clipboard.writeText(cap).then(() => toast('Caption copied!', 'success')).catch(() => {
+    toast('Select & copy text manually', 'warning');
+  });
 }
 
 function openShareModal(caption) {
-    document.getElementById('shareModalCaption').textContent = caption;
-    const waNum = '919000000000';
-    const waMsg = encodeURIComponent(caption);
-    const platforms = [
-        { name: 'WhatsApp', icon: '💬', cls: 'whatsapp', url: `https://wa.me/?text=${waMsg}` },
-        { name: 'Instagram', icon: '📸', cls: 'instagram', url: `https://www.instagram.com/` },
-        { name: 'Facebook', icon: '👍', cls: 'facebook', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${waMsg}` },
-        { name: 'Telegram', icon: '✈️', cls: 'telegram', url: `https://t.me/share/url?text=${waMsg}` },
-        { name: 'Threads', icon: '🧵', cls: 'threads', url: `https://www.threads.net/` },
-        { name: 'YouTube', icon: '▶️', cls: 'youtube', url: `https://www.youtube.com/` }
-    ];
-    document.getElementById('shareModalGrid').innerHTML = platforms.map(p =>
-        `<button class="share-btn ${p.cls}" onclick="shareToplatform('${p.url}','${p.name}')">
+  document.getElementById('shareModalCaption').textContent = caption;
+  const waNum = '919000000000';
+  const waMsg = encodeURIComponent(caption);
+  const platforms = [
+    { name: 'WhatsApp', icon: '💬', cls: 'whatsapp', url: `https://wa.me/?text=${waMsg}` },
+    { name: 'Instagram', icon: '📸', cls: 'instagram', url: `https://www.instagram.com/` },
+    { name: 'Facebook', icon: '👍', cls: 'facebook', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${waMsg}` },
+    { name: 'Telegram', icon: '✈️', cls: 'telegram', url: `https://t.me/share/url?text=${waMsg}` },
+    { name: 'Threads', icon: '🧵', cls: 'threads', url: `https://www.threads.net/` },
+    { name: 'YouTube', icon: '▶️', cls: 'youtube', url: `https://www.youtube.com/` }
+  ];
+  document.getElementById('shareModalGrid').innerHTML = platforms.map(p =>
+    `<button class="share-btn ${p.cls}" onclick="shareToplatform('${p.url}','${p.name}')">
       <span class="share-icon">${p.icon}</span>${p.name}
     </button>`
-    ).join('');
-    openModal('shareModal');
+  ).join('');
+  openModal('shareModal');
 }
 
 function shareToplatform(url, name) {
-    STATE.analytics.totalShares++;
-    window.open(url, '_blank');
-    toast(`Opening ${name}... Caption is copied!`, 'success');
-    copyCaption();
+  STATE.analytics.totalShares++;
+  window.open(url, '_blank');
+  toast(`Opening ${name}... Caption is copied!`, 'success');
+  copyCaption();
 }
 
 // ===== DASHBOARD PAGE =====
 function renderDashboard() {
-    const a = STATE.analytics;
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const maxVal = Math.max(...a.weekly);
-    return `
+  const a = STATE.analytics;
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const maxVal = Math.max(...a.weekly);
+  return `
   <div class="ai-suggestion">
     <div class="ai-tag">🤖 AI Insight</div>
     <strong>Best time to post today: 7–9 PM</strong><br>
@@ -212,7 +242,7 @@ function renderDashboard() {
 
 // ===== CONTENT ENGINE =====
 function renderContent() {
-    return `
+  return `
   <div class="grid-2">
     <div>
       <div class="card" style="margin-bottom:20px;">
@@ -259,32 +289,32 @@ function renderContent() {
 }
 
 function selectLang(lang) {
-    STATE.selectedLang = lang;
-    document.querySelectorAll('.lang-pill').forEach(el => el.classList.toggle('active', el.textContent.toLowerCase() === lang));
+  STATE.selectedLang = lang;
+  document.querySelectorAll('.lang-pill').forEach(el => el.classList.toggle('active', el.textContent.toLowerCase() === lang));
 }
 function selectTone(tone) {
-    STATE.selectedTone = tone;
-    document.querySelectorAll('.tone-card').forEach(el => el.classList.toggle('active', el.onclick.toString().includes(`'${tone}'`)));
+  STATE.selectedTone = tone;
+  document.querySelectorAll('.tone-card').forEach(el => el.classList.toggle('active', el.onclick.toString().includes(`'${tone}'`)));
 }
 function addTrend(tag) { toast(`Trend "${tag}" added to context!`, 'success'); }
 
 function generateContent() {
-    const out = document.getElementById('contentOutput');
-    out.innerHTML = `<div class="card" style="text-align:center;padding:40px;"><div class="animate-spin" style="font-size:32px;margin-bottom:12px;">⚙️</div><div>AI is crafting your content...</div></div>`;
-    setTimeout(() => {
-        const lang = STATE.selectedLang;
-        const tone = STATE.selectedTone;
-        const cat = STATE.selectedCategory;
-        const hooks = TEMPLATES.hooks[tone];
-        const hook = hooks[Math.floor(Math.random() * hooks.length)];
-        const langObj = TEMPLATES.captions[lang] || TEMPLATES.captions['english'];
-        const short = langObj.short[Math.floor(Math.random() * langObj.short.length)];
-        const long = langObj.long ? langObj.long[Math.floor(Math.random() * langObj.long.length)] : short;
-        const hashtags = TEMPLATES.hashtags[cat] || TEMPLATES.hashtags['general'];
-        const cta = TEMPLATES.cta_variations[Math.floor(Math.random() * TEMPLATES.cta_variations.length)];
-        const viralScore = Math.floor(62 + Math.random() * 30);
-        STATE.generatedContent = { hook, short, long, hashtags, cta, viralScore };
-        out.innerHTML = `
+  const out = document.getElementById('contentOutput');
+  out.innerHTML = `<div class="card" style="text-align:center;padding:40px;"><div class="animate-spin" style="font-size:32px;margin-bottom:12px;">⚙️</div><div>AI is crafting your content...</div></div>`;
+  setTimeout(() => {
+    const lang = STATE.selectedLang;
+    const tone = STATE.selectedTone;
+    const cat = STATE.selectedCategory;
+    const hooks = TEMPLATES.hooks[tone];
+    const hook = hooks[Math.floor(Math.random() * hooks.length)];
+    const langObj = TEMPLATES.captions[lang] || TEMPLATES.captions['english'];
+    const short = langObj.short[Math.floor(Math.random() * langObj.short.length)];
+    const long = langObj.long ? langObj.long[Math.floor(Math.random() * langObj.long.length)] : short;
+    const hashtags = TEMPLATES.hashtags[cat] || TEMPLATES.hashtags['general'];
+    const cta = TEMPLATES.cta_variations[Math.floor(Math.random() * TEMPLATES.cta_variations.length)];
+    const viralScore = Math.floor(62 + Math.random() * 30);
+    STATE.generatedContent = { hook, short, long, hashtags, cta, viralScore };
+    out.innerHTML = `
     <div class="viral-score-card" style="margin-bottom:16px;">
       <div class="viral-score-number">${viralScore}</div>
       <div class="viral-score-label">Viral Probability Score</div>
@@ -325,21 +355,21 @@ function generateContent() {
         </div>
       </div>
     </div>`;
-        toast('Content generated!', 'success');
-        STATE.analytics.totalShares++;
-    }, 1500);
+    toast('Content generated!', 'success');
+    STATE.analytics.totalShares++;
+  }, 1500);
 }
 
 function switchTab(name) {
-    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['hook', 'short', 'long'][i] === name));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', ['hook', 'short', 'long'][i] === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
 }
 
 function openWhatsApp(msg) {
-    const encoded = encodeURIComponent(msg);
-    window.open(`https://wa.me/?text=${encoded}`, '_blank');
-    // Add lead
-    STATE.leads.unshift({ name: 'New Lead', interest: STATE.selectedCategory, date: new Date().toISOString().split('T')[0], source: 'WhatsApp', status: 'Hot' });
-    STATE.analytics.leadsGenerated++;
-    toast('WhatsApp opened & lead tracked!', 'success');
+  const encoded = encodeURIComponent(msg);
+  window.open(`https://wa.me/?text=${encoded}`, '_blank');
+  // Add lead
+  STATE.leads.unshift({ name: 'New Lead', interest: STATE.selectedCategory, date: new Date().toISOString().split('T')[0], source: 'WhatsApp', status: 'Hot' });
+  STATE.analytics.leadsGenerated++;
+  toast('WhatsApp opened & lead tracked!', 'success');
 }
